@@ -61,6 +61,7 @@
 #include "ansi.h"
 #include "usbh_platform.h"
 #include "lwip/api.h"
+#include "ftp_server.h"
 
 /* USER CODE END Includes */
 
@@ -125,8 +126,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   debug_init(&huart3);
-  xprintf(ANSI_BG_BLUE "Nucleo-144 project" ANSI_BG_DEFAULT "\n");
-  printf("Zwykly printf tez dziala\n");
+  xprintf(ANSI_BG_BLUE "Nucleo-144 project" ANSI_BG_DEFAULT "\r\n");
+  printf("Zwykly printf tez dziala\r\n");
 
   /* USER CODE END 2 */
 
@@ -311,109 +312,16 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-/*
-fragmenty kodu dla serwera WWW
-opracowano na podstawie dostepnych przykladow
-*/
-
 void displayOwnIp(void)
 {
-
   xprintf(
-    "My IP: %d.%d.%d.%d\n",
-    ip4_addr1_16(netif_ip4_addr(&gnetif)),
-    ip4_addr2_16(netif_ip4_addr(&gnetif)),
-    ip4_addr3_16(netif_ip4_addr(&gnetif)),
-    ip4_addr4_16(netif_ip4_addr(&gnetif))
-    );
+      "My IP: %d.%d.%d.%d\r\n",
+      ip4_addr1_16(netif_ip4_addr(&gnetif)),
+      ip4_addr2_16(netif_ip4_addr(&gnetif)),
+      ip4_addr3_16(netif_ip4_addr(&gnetif)),
+      ip4_addr4_16(netif_ip4_addr(&gnetif)));
 }
 
-static char response[500];
-
-//based on available code examples
-static void http_server_serve(struct netconn *conn)
-{
-  struct netbuf *inbuf;
-  err_t recv_err;
-  char* buf;
-  u16_t buflen;
-
-  /* Read the data from the port, blocking if nothing yet there.
-   We assume the request (the part we care about) is in one netbuf */
-  recv_err = netconn_recv(conn, &inbuf);
-
-  if (recv_err == ERR_OK)
-  {
-    if (netconn_err(conn) == ERR_OK)
-    {
-      netbuf_data(inbuf, (void**)&buf, &buflen);
-
-      /* Is this an HTTP GET command? (only check the first 5 chars, since
-      there are other formats for GET, and we're keeping it very simple )*/
-      if ((buflen >=5) && (strncmp(buf, "GET /", 5) == 0))
-      {
-        response[0] = 0;
-
-        strcpy(response, "HTTP/1.1 200 OK\r\n\
-          Content-Type: text/html\r\n\
-          Connnection: close\r\n\r\n\
-          <!DOCTYPE HTML>\r\n");
-
-        strcat(response,"<title>Prosta strona WWW</title>");
-        strcat(response,"<h1 style=\"color:red\">Header</h1>");
-
-        strcat(response,"<p>paragraf, w sumie nie potrzebne, bo to będzie http a nie ftp</p>");
-          netconn_write(conn, response, sizeof(response), NETCONN_NOCOPY);
-      }
-    }
-  }
-  /* Close the connection (server closes in HTTP) */
-  netconn_close(conn);
-
-  /* Delete the buffer (netconn_recv gives us ownership,
-   so we have to make sure to deallocate the buffer) */
-  netbuf_delete(inbuf);
-}
-
-
-//based on available code examples
-static void http_server_netconn_thread(void const *arg)
-{
-  struct netconn *conn, *newconn;
-  err_t err, accept_err;
-
-  xprintf("http_server_netconn_thread\n");
-
-  /* Create a new TCP connection handle */
-  conn = netconn_new(NETCONN_TCP);
-
-  if (conn!= NULL)
-  {
-    /* Bind to port 80 (HTTP) with default IP address */
-    err = netconn_bind(conn, NULL, 80);
-
-    if (err == ERR_OK)
-    {
-      /* Put the connection into LISTEN state */
-      netconn_listen(conn);
-
-      while(1)
-      {
-        /* accept any icoming connection */
-        accept_err = netconn_accept(conn, &newconn);
-        if(accept_err == ERR_OK)
-        {
-          /* serve connection */
-          http_server_serve(newconn);
-
-          /* delete connection */
-          netconn_delete(newconn);
-        }
-      }
-    }
-  }
-}
 
 /* USER CODE END 4 */
 
@@ -437,19 +345,18 @@ void StartDefaultTask(void const *argument)
     xprintf(".");
     vTaskDelay(100);
   } while (Appli_state != APPLICATION_READY);
-  xprintf("USB device ready!");
+  xprintf("USB device ready!\r\n");
 
-  xprintf("Obtaining address with DHCP...\n");
+  xprintf("Obtaining address with DHCP...\r\n");
   struct dhcp *dhcp = netif_dhcp_data(&gnetif);
   do
   {
-    xprintf("dhcp->state = %02X\n", dhcp->state);
+    xprintf("dhcp->state = %02X\r\n", dhcp->state);
     vTaskDelay(250);
   } while (dhcp->state != 0x0A);
-  xprintf("DHCP bound\n");
+  xprintf("DHCP bound\r\n");
   displayOwnIp();
-  osThreadDef(
-      netconn_thread, http_server_netconn_thread, osPriorityNormal, 0, 1024);
+  osThreadDef(netconn_thread, ftp_server_netconn_thread, osPriorityNormal, 0, 1024);
   osThreadCreate(osThread(netconn_thread), NULL);
 
   for (;;)
@@ -460,45 +367,45 @@ void StartDefaultTask(void const *argument)
     {
     case 'w':
     {
-      xprintf("write test\n");
+      xprintf("write test\r\n");
       FRESULT res;
       UINT bw;
       FIL file;
       const char *text = "Linijka tekstu!\n";
       xprintf("f_open... ");
       res = f_open(&file, "0:/test.txt", FA_WRITE | FA_OPEN_APPEND);
-      xprintf("res=%d\n", res);
+      xprintf("res=%d\r\n", res);
       if (res)
         break;
       xprintf("f_write... ");
       res = f_write(&file, text, strlen(text), &bw);
-      xprintf("res=%d, bw=%d\n", res, bw);
+      xprintf("res=%d, bw=%d\r\n", res, bw);
       f_close(&file);
       break;
     }
     case 'r':
     {
-      xprintf("read test!\n");
+      xprintf("read test!\r\n");
       FIL file;
       FRESULT res = f_open(&file, "0:/test.txt", FA_READ);
-      xprintf("f_open res=%d\n", res);
+      xprintf("f_open res=%d\r\n", res);
       if (res)
         break;
       const uint32_t BUF_SIZE = 64;
       char buf[BUF_SIZE];
       UINT br;
-      xprintf("reading file contents:\n");
+      xprintf("reading file contents:\r\n");
       do
       {
         res = f_read(&file, buf, BUF_SIZE, &br);
         if ((res == FR_OK) && (br))
         {
-          xprintf("chunk:\n");
+          xprintf("chunk:\r\n");
           debug_dump(buf, br);
         }
         else
         {
-          xprintf("f_read res=%d\n", res);
+          xprintf("f_read res=%d\r\n", res);
           break;
         }
       } while (br > 0);

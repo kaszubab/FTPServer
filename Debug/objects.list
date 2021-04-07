@@ -114,6 +114,8 @@
 "Src/ethernetif.o"
 "Src/fatfs.o"
 "Src/freertos.o"
+"Src/ftp_commands.o"
+"Src/ftp_server.o"
 "Src/lwip.o"
 "Src/main.o"
 "Src/stm32f7xx_hal_msp.o"

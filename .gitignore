@@ -120,3 +120,5 @@ local.properties
 
 ### STM32 HAL ###
 .elf
+
+.vscode/
