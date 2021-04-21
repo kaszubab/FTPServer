@@ -347,11 +347,12 @@ void StartDefaultTask(void const *argument)
   } while (Appli_state != APPLICATION_READY);
   xprintf("USB device ready!\r\n");
 
+
+
   xprintf("Obtaining address with DHCP...\r\n");
   struct dhcp *dhcp = netif_dhcp_data(&gnetif);
   do
   {
-    xprintf("dhcp->state = %02X\r\n", dhcp->state);
     vTaskDelay(250);
   } while (dhcp->state != 0x0A);
   xprintf("DHCP bound\r\n");
