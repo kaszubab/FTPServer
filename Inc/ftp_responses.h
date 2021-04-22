@@ -8,7 +8,15 @@ const char ftp_login_successful_response[] = "230 Login successful.\r\n";
 const char ftp_wrong_login_respone[] = "430 Invalid username or password.\r\n";
 const char ftp_command_not_found_response[] = "500 command unrecognized\r\n";
 const char ftp_command_not_implemented_response[] = "502 Command not implemented\r\n";
-const char ftp_pathname_response[] = "257 ";
+const char ftp_pathname_response_left[] = "257 ";
+const char ftp_pathname_response_right[] = "is the current directory\r\n";
+const char ftp_binary_mode_response[] = "200 Switching to Binary mode.\r\n";
+const char ftp_passive_mode_response[] = "227 Entering Passive Mode (192,168,1,116,0,";
+const char ftp_service_unavailable_response[] = "421\r\n";
+const char ftp_request_passive_mode_response[] = "425 Use PASV first.\r\n";
+const char ftp_open_data_connection_response[] = "150 Data transmission has been started.\r\n";
+const char ftp_closing_data_connection_response[] = "226 Transfer complete.\r\n";
+
 
 
 

@@ -125,6 +125,7 @@
 "Src/system_stm32f7xx.o"
 "Src/term_io.o"
 "Src/usb_host.o"
+"Src/usb_utils.o"
 "Src/usbh_conf.o"
 "Src/usbh_diskio.o"
 "Src/usbh_platform.o"
