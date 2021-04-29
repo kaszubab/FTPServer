@@ -11,13 +11,13 @@ const char ftp_command_not_implemented_response[] = "502 Command not implemented
 const char ftp_pathname_response_left[] = "257 ";
 const char ftp_pathname_response_right[] = "is the current directory\r\n";
 const char ftp_binary_mode_response[] = "200 Switching to Binary mode.\r\n";
-const char ftp_passive_mode_response[] = "227 Entering Passive Mode (192,168,1,116,0,";
+const char ftp_passive_mode_response[] = "227 Entering Passive Mode (";
 const char ftp_service_unavailable_response[] = "421\r\n";
 const char ftp_request_passive_mode_response[] = "425 Use PASV first.\r\n";
 const char ftp_open_data_connection_response[] = "150 Data transmission has been started.\r\n";
+const char ftp_data_listening_response[] = "150 OK to send data.\r\n";
 const char ftp_closing_data_connection_response[] = "226 Transfer complete.\r\n";
-
-
-
+const char ftp_pathname_changed[] = "250 Directory succesfully changed.\r\n";
+const char ftp_ascii_mode_response[] = "200 Switching to ASCII mode.\r\n";
 
 #endif

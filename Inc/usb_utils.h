@@ -3,6 +3,8 @@
 
 #include "stdint.h"
 
+extern char pathname[];
+
 void list_dir(char* path, uint8_t* files_list);
 
 
