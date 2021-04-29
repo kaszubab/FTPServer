@@ -13,11 +13,18 @@ typedef enum ftp_command {
     ASCII_MODE = 6,
     PASV = 7,
     LIST = 8,
+	SEND_FILE = 9,
+	RECV_FILE = 10,
+	CWD = 11,
+
 } ftp_command;
 
 ftp_command get_command(char* request);
 
 void get_single_argument(const char* request, char* buffer);
 
+void get_new_directory(const char *request, char * buffer);
+
+void get_filename_argument(const char *request, char * buffer);
 
 #endif

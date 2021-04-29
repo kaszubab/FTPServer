@@ -347,8 +347,6 @@ void StartDefaultTask(void const *argument)
   } while (Appli_state != APPLICATION_READY);
   xprintf("USB device ready!\r\n");
 
-
-
   xprintf("Obtaining address with DHCP...\r\n");
   struct dhcp *dhcp = netif_dhcp_data(&gnetif);
   do
@@ -359,6 +357,9 @@ void StartDefaultTask(void const *argument)
   displayOwnIp();
   osThreadDef(netconn_thread, ftp_server_netconn_thread, osPriorityNormal, 0, 1024);
   osThreadCreate(osThread(netconn_thread), NULL);
+
+
+
 
   for (;;)
   {

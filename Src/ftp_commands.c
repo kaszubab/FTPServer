@@ -7,9 +7,12 @@ const char *auth_ssl = "AUTH SSL";
 const char *user = "USER";
 const char *pass = "PASS";
 const char *pwd = "PWD";
+const char *cwd = "CWD";
 const char *type = "TYPE";
 const char *pasv = "PASV";
 const char *list = "LIST";
+const char * retr = "RETR";
+const char * stor = "STOR";
 
 ftp_command get_command(char *request)
 {
@@ -28,6 +31,9 @@ ftp_command get_command(char *request)
     if (strncmp(request, pwd, 3) == 0)
         return PWD;
 
+    if (strncmp(request, cwd, 3) == 0)
+        return CWD;
+
     if (strncmp(request, type, 4) == 0)
     {
         if (request[5] == 'I')
@@ -42,7 +48,13 @@ ftp_command get_command(char *request)
         return PASV;
     
     if (strncmp(request, list, 4) == 0)
-        return LIST;
+		return LIST;
+
+	if (strncmp(request, retr, 4) == 0)
+		return SEND_FILE;
+
+	if (strncmp(request, stor, 4) == 0)
+		return RECV_FILE;
 
     return UNKNOWN;
 }
@@ -57,4 +69,25 @@ void get_single_argument(const char *request, char *buffer)
         buffer[buff_index] = request[i];
         buff_index++;
     }
+}
+
+void get_new_directory(const char *request, char * buffer) {
+	uint8_t buff_index = 0;
+	for (int i = 4; i < strlen(request); i++) {
+		if (request[i] == '\r')
+			break;
+		buffer[buff_index] = request[i];
+		buff_index++;
+	}
+	buffer[buff_index] = '\0';
+}
+
+void get_filename_argument(const char *request, char * buffer) {
+	uint8_t buff_index = 0;
+	for (int i = 5; i < strlen(request); i++) {
+		if (request[i] == '\r')
+			break;
+		buffer[buff_index] = request[i];
+		buff_index++;
+	}
 }

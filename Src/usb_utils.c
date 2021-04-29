@@ -3,6 +3,30 @@
 
 const char * padding = "                    ";
 
+char pathname[50] = "/";
+
+UBaseType_t get_size(const char * file) {
+    FRESULT res;
+	DIR dir;
+    static FILINFO fno;
+
+    UBaseType_t file_size = 0;
+
+	res = f_opendir(&dir, pathname);                       /* Open the directory */
+	if (res == FR_OK) {
+		for (;;) {
+			res = f_readdir(&dir, &fno);                   /* Read a directory item */
+			if (res != FR_OK || fno.fname[0] == 0)
+				break;  /* Break on error or end of dir */
+			if (strcmp(fno.fname, file) == 0) {
+				file_size = fno.fsize;
+				break;
+			}
+		}
+		f_closedir(&dir);
+	}
+    return file_size;
+}
 
 void list_dir(char *path, uint8_t *files_list)
 {
@@ -15,6 +39,8 @@ void list_dir(char *path, uint8_t *files_list)
     char fileData[200];
     files_list[0] = '\0';
     int list_index = 0;
+
+
 
     res = f_opendir(&dir, path); /* Open the directory */
     if (res == FR_OK)
@@ -39,6 +65,7 @@ void list_dir(char *path, uint8_t *files_list)
             int written = sprintf(&(files_list[list_index]), "%s", fileData);
             list_index += written;
         }
+
         f_closedir(&dir);
     }
 }
