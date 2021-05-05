@@ -3,5 +3,6 @@
 
 const char user_name[] = "user";
 const char user_password[] = "pass";
+char rc4Key[] = "supertajnyklucz";
 
 #endif

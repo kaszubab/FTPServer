@@ -16,7 +16,7 @@ typedef enum ftp_command {
 	SEND_FILE = 9,
 	RECV_FILE = 10,
 	CWD = 11,
-
+    DELETE = 12,
 } ftp_command;
 
 ftp_command get_command(char* request);

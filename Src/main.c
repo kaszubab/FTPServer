@@ -359,7 +359,13 @@ void StartDefaultTask(void const *argument)
   osThreadCreate(osThread(netconn_thread), NULL);
 
 
+  FATFS fs;
+  FRESULT res;
+  res = f_mount(&fs, "", 1);
 
+  if (res == FR_OK){
+    printf("Volume ok\r\n");
+  }
 
   for (;;)
   {
