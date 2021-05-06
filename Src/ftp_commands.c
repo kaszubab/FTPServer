@@ -13,6 +13,7 @@ const char *pasv = "PASV";
 const char *list = "LIST";
 const char * retr = "RETR";
 const char * stor = "STOR";
+const char *delete = "DELE";
 
 ftp_command get_command(char *request)
 {
@@ -56,6 +57,10 @@ ftp_command get_command(char *request)
 	if (strncmp(request, stor, 4) == 0)
 		return RECV_FILE;
 
+    if (strncmp(request, delete, 4) == 0){
+        return DELETE;
+    }
+
     return UNKNOWN;
 }
 
@@ -73,6 +78,19 @@ void get_single_argument(const char *request, char *buffer)
 
 void get_new_directory(const char *request, char * buffer) {
 	uint8_t buff_index = 0;
+
+    //check if path is ..
+    if (request[4] == '.' && request[5] == '.'){
+        buff_index = strlen(buffer) - 1;
+        while (buffer[buff_index] != '/')
+        {
+            buffer[buff_index] = '\0';
+            buff_index--;
+        }
+
+        return;
+    }
+
 	for (int i = 4; i < strlen(request); i++) {
 		if (request[i] == '\r')
 			break;

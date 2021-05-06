@@ -11,13 +11,7 @@
 #include "ftp_config.h"
 #include "usb_utils.h"
 
-
 extern struct netif gnetif;
-
-/*
-fragmenty kodu dla serwera WWW
-opracowano na podstawie dostepnych przykladow
-*/
 
 static char response[500];
 
@@ -31,110 +25,140 @@ uint16_t get_data_port()
     return port++;
 }
 
-void file_send(struct netconn * conn, struct netconn * data_conn, const char * file) {
-	netconn_write(conn, ftp_open_data_connection_response, sizeof(ftp_open_data_connection_response), NETCONN_NOCOPY);
+void file_send(struct netconn *conn, struct netconn *data_conn, const char *file)
+{
+    netconn_write(conn, ftp_open_data_connection_response, sizeof(ftp_open_data_connection_response), NETCONN_NOCOPY);
 
-	vTaskDelay(50);
+    vTaskDelay(50);
 
-	static uint8_t buffer[FRAME_SIZE];
-	UBaseType_t read_size;
+    static uint8_t buffer[FRAME_SIZE];
+    UBaseType_t read_size;
+
+    FIL file_ptr; /* File objects */
+    FRESULT fr;   /* FatFs function common result code */
+
+    /* Open source file on the drive 1 */
+
+    char *filename = NULL;
+
+    filename = strdup(file);
+
+    // xprintf("%s  %d\r\n", filename, strlen(filename));
+    filename[strlen(filename) - 2] = '\0'; //TODO uwaga na ten fragrment, bo może psuć 
+    // uint8_t j = 0;
+
+    // for(int i = 0; i < strlen(filename); i++){
+    //     xprintf("%c\r\n", filename[i]);
+    //     j++;
+    // }
+
+    // xprintf("%d\r\n", j);
+
+    // xprintf("%s  %d\r\n", filename, strlen(filename));
+
+    char full_path[100];
+    if (strlen(pathname) == 1)
+    {
+        sprintf(full_path, "/%s", filename);
+    }
+    else
+    {
+        sprintf(full_path, "%s/%s", pathname, filename);
+    }
+
+    xprintf("Sending buffer with %s \r\n", full_path);
+    UBaseType_t file_size = get_size(filename);
+    xprintf("File size: %d\r\n", file_size);
+    fr = f_open(&file_ptr, full_path, FA_READ);
+
+    uint8_t decipher[FRAME_SIZE];
 
 
-	FIL file_ptr;      /* File objects */
-	FRESULT fr;          /* FatFs function common result code */
+    while (file_size > 0)
+    {
+        if (fr == FR_OK)
+        {
+            UBaseType_t size_to_read = file_size > FRAME_SIZE ? FRAME_SIZE : file_size;
 
-	/* Open source file on the drive 1 */
+            f_read(&file_ptr, buffer, size_to_read, &read_size);
+            RC4(rc4Key, buffer, decipher);
 
 
-	char *filename = NULL;
+            xprintf("%s\r\n", decipher);
+            netconn_write(data_conn, decipher, sizeof(uint8_t) * strlen(decipher), NETCONN_COPY);
+            file_size -= read_size;
+        }
+    }
+    /* Close open files */
+    f_close(&file_ptr);
 
-	filename = strdup(file);
-	/* ... */
-	filename[strlen(filename)-1] = '\0';
-
-	char full_path[100];
-    sprintf(full_path, "%s/%s", pathname, filename);
-
-	xprintf("Sending buffer with %s \n", full_path);
-	UBaseType_t file_size = get_size(filename);
-
-	fr = f_open(&file_ptr, full_path, FA_READ);
-
-	while (file_size > 0) {
-		if (fr == FR_OK) {
-				UBaseType_t size_to_read = file_size > FRAME_SIZE ? FRAME_SIZE : file_size;
-				f_read(&file_ptr, buffer, size_to_read, &read_size);
-				netconn_write(data_conn, buffer, read_size, NETCONN_COPY);
-				file_size -= read_size;
-			}
-		}
-	/* Close open files */
-	f_close(&file_ptr);
-
-	netconn_write(conn, ftp_closing_data_connection_response, sizeof(ftp_closing_data_connection_response), NETCONN_NOCOPY);
-	return;
+    netconn_write(conn, ftp_closing_data_connection_response, sizeof(ftp_closing_data_connection_response), NETCONN_NOCOPY);
+    return;
 }
 
-void file_recv(struct netconn * conn, struct netconn * data_conn, const char * file) {
-	/* tell that transmission has been started */
-	netconn_write(conn, ftp_data_listening_response, sizeof(ftp_data_listening_response), NETCONN_NOCOPY);
+void file_recv(struct netconn *conn, struct netconn *data_conn, const char *file)
+{
+    /* tell that transmission has been started */
+    netconn_write(conn, ftp_data_listening_response, sizeof(ftp_data_listening_response), NETCONN_NOCOPY);
 
-	vTaskDelay(50);
-	/*here should be data transmission on data port */
+    vTaskDelay(50);
+    /*here should be data transmission on data port */
 
-	static uint8_t buffer[FRAME_SIZE];
-	UBaseType_t incoming_size;
+    FIL file_ptr;
+    FRESULT fr;
 
+    char *filename = NULL;
+    filename = strdup(file);
+    filename[strlen(filename) - 1] = '\0';
 
-	FIL file_ptr;
-	FRESULT fr;
-
-	char *filename = NULL;
-	filename = strdup(file);
-	filename[strlen(filename)-1] = '\0';
-
-	char full_path[100];
+    char full_path[100];
     sprintf(full_path, "%s/%s", pathname, filename);
 
-	/* Open source file on the drive 1 */
-	fr = f_open(&file_ptr, full_path, FA_WRITE | FA_CREATE_ALWAYS);
+    /* Open source file on the drive 1 */
+    fr = f_open(&file_ptr, full_path, FA_WRITE | FA_CREATE_ALWAYS);
 
-	xprintf("Function results %d   %d  \n", fr);
+    xprintf("Function results %d \r\n", fr);
 
+    uint8_t transmission_not_finished = 1;
+    uint8_t cipher[FRAME_SIZE];
 
-	uint8_t transmission_not_finished = 1;
+    while (transmission_not_finished)
+    {
+        struct netbuf *inbuf;
+        err_t recv_err;
+        char *buf;
+        u16_t buflen;
 
-	while (transmission_not_finished) {
-		struct netbuf * inbuf;
-		err_t recv_err;
-		char * buf;
-		u16_t buflen;
+        recv_err = netconn_recv(data_conn, &inbuf);
 
-		recv_err = netconn_recv(data_conn, &inbuf);
+        if (recv_err == ERR_OK)
+        {
+            if (netconn_err(data_conn) == ERR_OK)
+            {
+                netbuf_data(inbuf, (void **)&buf, &buflen);
+                RC4(rc4Key, buf, cipher);
+                if (fr == FR_OK)
+                {
+                    f_write(&file_ptr, cipher, sizeof(uint8_t) * strlen(cipher), NULL);
+                }
+                netbuf_delete(inbuf);
+            }
+            else
+            {
+                break;
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
 
-		if (recv_err == ERR_OK) {
-			if (netconn_err(data_conn) == ERR_OK) {
-				netbuf_data(inbuf, (void**)&buf, &buflen);
-				if (fr == FR_OK) {
-					f_write(&file_ptr, buf, buflen, incoming_size);
-				}
-				netbuf_delete(inbuf);
-			} else {
-				break;
-			}
-		} else {
-			break;
-		}
-	}
+    /* Close open files */
+    f_close(&file_ptr);
 
-	/* Close open files */
-	f_close(&file_ptr);
-
-
-	/* tell that transmission has ended */
-	netconn_write(conn, ftp_closing_data_connection_response, sizeof(ftp_closing_data_connection_response), NETCONN_NOCOPY);
-
-
+    /* tell that transmission has ended */
+    netconn_write(conn, ftp_closing_data_connection_response, sizeof(ftp_closing_data_connection_response), NETCONN_NOCOPY);
 }
 
 struct netconn *new_connection(uint16_t new_port)
@@ -188,7 +212,7 @@ static void ftp_server_serve(struct netconn *conn)
     char name[20];
     char password[20];
     char message_buff[50];
-	char filename[100];
+    char filename[100];
 
     /* Read the data from the port, blocking if nothing yet there.
    We assume the request (the part we care about) is in one netbuf */
@@ -199,15 +223,15 @@ static void ftp_server_serve(struct netconn *conn)
     while (netconn_err(conn) == ERR_OK && continue_transmission)
     {
         struct netbuf *inbuf;
-		err_t recv_err;
-		char * buf;
-		u16_t buflen;
+        err_t recv_err;
+        char *buf;
+        u16_t buflen;
         recv_err = netconn_recv(conn, &inbuf);
 
         if (recv_err == ERR_OK)
         {
             netbuf_data(inbuf, (void **)&buf, &buflen);
-
+            printf("%s\r\n", buf);
             switch (get_command(buf))
             {
             case AUTH_TLS:
@@ -227,26 +251,26 @@ static void ftp_server_serve(struct netconn *conn)
                 get_single_argument(buf, password);
                 netconn_write(conn, ftp_login_successful_response, sizeof(ftp_login_successful_response), NETCONN_NOCOPY);
 
-//                if (strcmp(name, user_name) == 0 && strcmp(password, user_password) == 0)
-//                {
-//                    netconn_write(conn, ftp_login_successful_response, sizeof(ftp_login_successful_response), NETCONN_NOCOPY);
-//                }
-//                else
-//                {
-//                    xprintf("Wrong user %d or pass %d\r\n", strcmp(name, user_name), strcmp(password, user_password));
-//                    netconn_write(conn, ftp_wrong_login_respone, sizeof(ftp_wrong_login_respone), NETCONN_NOCOPY);
-//                    continue_transmission = 0;
-//                }
+                //                if (strcmp(name, user_name) == 0 && strcmp(password, user_password) == 0)
+                //                {
+                //                    netconn_write(conn, ftp_login_successful_response, sizeof(ftp_login_successful_response), NETCONN_NOCOPY);
+                //                }
+                //                else
+                //                {
+                //                    xprintf("Wrong user %d or pass %d\r\n", strcmp(name, user_name), strcmp(password, user_password));
+                //                    netconn_write(conn, ftp_wrong_login_respone, sizeof(ftp_wrong_login_respone), NETCONN_NOCOPY);
+                //                    continue_transmission = 0;
+                //                }
                 break;
 
             case PWD:
                 sprintf(message_buff, "%s \"%s\" %s", ftp_pathname_response_left, pathname, ftp_pathname_response_right);
                 netconn_write(conn, message_buff, sizeof(message_buff), NETCONN_NOCOPY);
                 break;
-			case CWD:
-				get_new_directory(buf, pathname);
-				netconn_write(conn, ftp_pathname_changed, sizeof(ftp_pathname_changed), NETCONN_NOCOPY);
-				break;
+            case CWD:
+                get_new_directory(buf, pathname);
+                netconn_write(conn, ftp_pathname_changed, sizeof(ftp_pathname_changed), NETCONN_NOCOPY);
+                break;
             case BINARY_MODE:
                 netconn_write(conn, ftp_binary_mode_response, sizeof(ftp_binary_mode_response), NETCONN_NOCOPY);
                 break;
@@ -268,22 +292,20 @@ static void ftp_server_serve(struct netconn *conn)
 
                 temp_data_conn = new_connection(new_port);
 
-
                 if (temp_data_conn)
                 {
-                	char my_ip[50];
-					sprintf(my_ip,
-                	      "%d,%d,%d,%d,",
-                	      ip4_addr1_16(netif_ip4_addr(&gnetif)),
-                	      ip4_addr2_16(netif_ip4_addr(&gnetif)),
-                	      ip4_addr3_16(netif_ip4_addr(&gnetif)),
-                	      ip4_addr4_16(netif_ip4_addr(&gnetif)));
+                    char my_ip[50];
+                    sprintf(my_ip,
+                            "%d,%d,%d,%d,",
+                            ip4_addr1_16(netif_ip4_addr(&gnetif)),
+                            ip4_addr2_16(netif_ip4_addr(&gnetif)),
+                            ip4_addr3_16(netif_ip4_addr(&gnetif)),
+                            ip4_addr4_16(netif_ip4_addr(&gnetif)));
                     xprintf("Created data connection on port %d\r\n", new_port);
                     sprintf(message_buff, "%s%s0,%i).\r\n", ftp_passive_mode_response, my_ip, new_port);
                     netconn_write(conn, message_buff, sizeof(message_buff), NETCONN_NOCOPY);
 
                     netconn_listen(temp_data_conn);
-
 
                     /* accept an incoming connection */
                     err_t accept_err = netconn_accept(temp_data_conn, &data_conn);
@@ -304,7 +326,7 @@ static void ftp_server_serve(struct netconn *conn)
                 if (data_conn == NULL)
                 {
                     netconn_write(conn, ftp_request_passive_mode_response, sizeof(ftp_request_passive_mode_response), NETCONN_NOCOPY);
-                    xprintf("Can't no data conection avaiable\r\n");
+                    xprintf("Can't open data conection. No connection avaiable\r\n");
                     break;
                 }
 
@@ -318,43 +340,50 @@ static void ftp_server_serve(struct netconn *conn)
                 continue_transmission = 0;
 
                 break;
-			case SEND_FILE:
-				xprintf("Is this send file? \r\n");
+            case SEND_FILE:
+                xprintf("Is this send file? \r\n");
 
-
-				if (data_conn == NULL) {
-					netconn_write(conn, ftp_request_passive_mode_response, sizeof(ftp_request_passive_mode_response), NETCONN_NOCOPY);
+                if (data_conn == NULL)
+                {
+                    netconn_write(conn, ftp_request_passive_mode_response, sizeof(ftp_request_passive_mode_response), NETCONN_NOCOPY);
                     xprintf("Can't no data connection avaiable\r\n");
-					break;
-				}
-				get_filename_argument(buf, filename);
-				xprintf("Filename %s\n", filename);
-				file_send(conn, data_conn, filename);
-				netconn_close(data_conn);
-				netconn_close(temp_data_conn);
-				vTaskDelay(100);
-				netconn_delete(data_conn);
-				netconn_delete(temp_data_conn);
-//				data_conn = temp_data_conn = NULL;
-				continue_transmission = 0;
-				break;
-			case RECV_FILE:
-				if (data_conn == NULL) {
-					netconn_write(conn, ftp_request_passive_mode_response, sizeof(ftp_request_passive_mode_response), NETCONN_NOCOPY);
+                    break;
+                }
+                get_filename_argument(buf, filename);
+                xprintf("Filename %s\r\n", filename);
+                file_send(conn, data_conn, filename);
+                netconn_close(data_conn);
+                netconn_close(temp_data_conn);
+                vTaskDelay(100);
+                netconn_delete(data_conn);
+                netconn_delete(temp_data_conn);
+                //				data_conn = temp_data_conn = NULL;
+                continue_transmission = 0;
+                break;
+            case RECV_FILE:
+                if (data_conn == NULL)
+                {
+                    netconn_write(conn, ftp_request_passive_mode_response, sizeof(ftp_request_passive_mode_response), NETCONN_NOCOPY);
                     xprintf("Can't no data conection avaiable\r\n");
-					break;
-				}
-				get_filename_argument(buf, filename);
-				xprintf("Filename %s\n", &filename);
-				file_recv(conn, data_conn, filename);
-				netconn_close(data_conn);
-				netconn_close(temp_data_conn);
-				vTaskDelay(100);
-				netconn_delete(data_conn);
-				netconn_delete(temp_data_conn);
-				//data_conn = temp_data_conn = NULL;
-				continue_transmission = 0;
-//				break;
+                    break;
+                }
+                get_filename_argument(buf, filename);
+                xprintf("Filename %s\r\n", &filename);
+                file_recv(conn, data_conn, filename);
+                netconn_close(data_conn);
+                netconn_close(temp_data_conn);
+                vTaskDelay(100);
+                netconn_delete(data_conn);
+                netconn_delete(temp_data_conn);
+                //data_conn = temp_data_conn = NULL;
+                continue_transmission = 0;
+                break;
+
+            case DELETE:
+                get_filename_argument(buf, filename);
+                delete_file(filename);
+                netconn_write(conn, ftp_delete_file_success_response, sizeof(ftp_delete_file_success_response), NETCONN_NOCOPY);
+                break;
             case NOT_SUPPORTED:
                 netconn_write(conn, ftp_command_not_implemented_response, sizeof(ftp_command_not_implemented_response), NETCONN_NOCOPY);
                 break;
@@ -372,8 +401,6 @@ static void ftp_server_serve(struct netconn *conn)
             break;
         }
     }
-
-
 
     /* Close the connection (server closes in HTTP) */
     netconn_close(conn);

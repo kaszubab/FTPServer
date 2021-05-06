@@ -19,5 +19,5 @@ const char ftp_data_listening_response[] = "150 OK to send data.\r\n";
 const char ftp_closing_data_connection_response[] = "226 Transfer complete.\r\n";
 const char ftp_pathname_changed[] = "250 Directory succesfully changed.\r\n";
 const char ftp_ascii_mode_response[] = "200 Switching to ASCII mode.\r\n";
-
+const char ftp_delete_file_success_response[] = "250 Delete operation succesful.\r\n";
 #endif
